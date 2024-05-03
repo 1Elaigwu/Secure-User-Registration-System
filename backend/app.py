@@ -1,12 +1,11 @@
 import os
 from flask import Flask, render_template, request, jsonify, redirect, session, g
 import sqlite3
-import bcrypt  # Import bcrypt for password hashing
+import bcrypt
 
-app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Generate a random secret key for session management
+app = Flask(__name__, static_url_path='/static')
+app.secret_key = os.urandom(24)
 
-# Define the path to the SQLite database file
 app.config['DATABASE'] = os.path.join(os.getcwd(), 'user_database.db')
 
 def get_db():
@@ -38,17 +37,14 @@ def register_user():
         db = get_db()
         cursor = db.cursor()
 
-        # Check if the username already exists
         cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
         existing_user = cursor.fetchone()
 
         if existing_user:
             return jsonify({'message': 'Username already exists. Please choose a different username.'}), 400
 
-        # Hash the password before storing it in the database
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
-        # Insert new user into the database with hashed password
         cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
         db.commit()
 
@@ -61,7 +57,6 @@ def register_user():
 @app.route('/login', methods=['GET', 'POST'])
 def login_user():
     if request.method == 'GET':
-        # Render the login form for GET requests
         return render_template('login.html')
 
     elif request.method == 'POST':
@@ -76,12 +71,10 @@ def login_user():
             db = get_db()
             cursor = db.cursor()
 
-            # Retrieve hashed password from the database based on the username
             cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
             stored_password = cursor.fetchone()
 
             if stored_password:
-                # Check if the provided password matches the stored hashed password
                 if bcrypt.checkpw(password.encode('utf-8'), stored_password[0]):
                     session['username'] = username
                     return jsonify({'success': True, 'message': 'Login successful!'})
@@ -111,18 +104,21 @@ def user_page():
     if 'username' in session:
         return render_template('user.html', username=session['username'])
     else:
-        return redirect('/login')  # Redirect to login page if not authenticated
+        return redirect('/login')
 
 @app.route('/logout', methods=['POST'])
 def logout_user():
     try:
-        # Clear the session data
         session.clear()
         return jsonify({'success': True, 'message': 'Logout successful.'})
 
     except Exception as e:
         print(f"An error occurred during logout: {e}")
         return jsonify({'success': False, 'message': 'An error occurred during logout.'}), 500
+
+@app.route('/register', methods=['GET'])
+def register_page():
+    return render_template('register.html')
 
 if __name__ == "__main__":
     app.run(debug=True)
